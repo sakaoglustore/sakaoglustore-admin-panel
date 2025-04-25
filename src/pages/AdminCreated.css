@@ -1,0 +1,20 @@
+.giftbox-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .giftbox-form input[type="text"],
+  .giftbox-form input[type="email"],
+  .giftbox-form input[type="password"] {
+    padding: 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  
+  .checkbox-label {
+    font-size: 14px;
+    margin-top: 5px;
+  }
+  

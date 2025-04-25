@@ -1,0 +1,30 @@
+.add-giftbox-container {
+    padding: 30px;
+    max-width: 500px;
+    margin: auto;
+  }
+  .giftbox-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  .giftbox-form input,
+  .giftbox-form textarea {
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+  }
+  .giftbox-form button {
+    background-color: #2563eb;
+    color: white;
+    padding: 12px;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .giftbox-form button:hover {
+    background-color: #1d4ed8;
+  }
+  

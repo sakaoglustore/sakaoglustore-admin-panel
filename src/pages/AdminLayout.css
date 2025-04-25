@@ -1,0 +1,83 @@
+.admin-container {
+  display: flex;
+  height: 100vh;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.admin-sidebar {
+  width: 240px;
+  background-color: #1f2937;
+  color: #fff;
+  padding: 30px 20px;
+  overflow-y: auto;
+}
+
+.admin-title {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 30px;
+  color: #fff;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-link {
+  color: #cbd5e1;
+  text-decoration: none;
+  margin: 10px 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  transition: 0.2s;
+  cursor: pointer;
+}
+
+.admin-link:hover {
+  background-color: #374151;
+  color: #fff;
+}
+
+.admin-link.active {
+  background-color: #2563eb;
+  color: white;
+  font-weight: bold;
+}
+
+.admin-main {
+  flex-grow: 1;
+  padding: 30px;
+  background-color: #f3f4f6;
+  overflow-y: auto;
+}
+
+/* Açılır menü için alt bağlantılar */
+.dropdown-toggle {
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+
+.dropdown-links {
+  display: flex;
+  flex-direction: column;
+  margin-left: 15px;
+  margin-bottom: 10px;
+  gap: 5px; /* 👈 alt alta düzgün boşluk */
+}
+
+.admin-link.sub {
+  padding-left: 10px;
+  font-size: 14px;
+  color: #ccc;
+  text-decoration: none;
+}
+
+.admin-link.sub:hover {
+  color: white;
+  text-decoration: underline;
+}
