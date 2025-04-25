@@ -11,7 +11,7 @@ const Users = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/user/all', {
+        const res = await axios.get('https://api.sakaoglustore.net/api/user/all', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUsers(res.data);
