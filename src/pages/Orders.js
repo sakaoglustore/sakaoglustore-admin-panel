@@ -1,5 +1,3 @@
-// src/pages/Orders.jsx
-
 'use client';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -72,23 +70,21 @@ const Orders = () => {
   };
 
   const exportToXML = () => {
-  let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>\n<orders>`;
+    let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>\n<orders>`;
 
-  orders.forEach(order => {
-    const matchedAddress = order.userId?.addresses?.find(a => a._id.toString() === order.addressId?.toString());
+    orders.forEach(order => {
+      const address = order.address || {};
+      const fullAddress = address.fullAddress || '';
+      const city = address.city || '';
+      const district = address.district || '';
+      const phone = address.phone || '';
+      const name = `${order.userId?.firstName || ''} ${order.userId?.lastName || ''}`;
+      const email = order.userId?.email || '';
 
-    const fullAddress = matchedAddress?.fullAddress || '';
-    const city = matchedAddress?.city || '';
-    const district = matchedAddress?.district || '';
-    const combinedAddress = `${fullAddress}`;
-    const phone = matchedAddress?.phone || '';
-    const name = `${order.userId?.firstName || ''} ${order.userId?.lastName || ''}`;
-    const email = order.userId?.email || '';
-
-    xmlContent += `
+      xmlContent += `
   <cargo>
     <receiver_name>${name}</receiver_name>
-    <receiver_address>${combinedAddress}</receiver_address>
+    <receiver_address>${fullAddress}</receiver_address>
     <city>${city}</city>
     <town>${district}</town>
     <phone_gsm>${phone}</phone_gsm>
@@ -106,14 +102,13 @@ const Orders = () => {
     <campaign_id></campaign_id>
     <campaign_code></campaign_code>
   </cargo>`;
-  });
+    });
 
-  xmlContent += `\n</orders>`;
+    xmlContent += `\n</orders>`;
 
-  const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
-  saveAs(blob, 'siparisler.xml');
-};
-
+    const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
+    saveAs(blob, 'siparisler.xml');
+  };
 
   const nextPage = () => {
     if (hasMore) setPage(prev => prev + 1);
@@ -150,53 +145,53 @@ const Orders = () => {
         <p>Hiç sipariş bulunamadı.</p>
       ) : (
         orders.map(order => {
-          const matchedAddress = order.userId?.addresses?.find(a => a._id === order.addressId);
+          const address = order.address || {};
 
           return (
-<div key={order._id} className="order-card">
-  <div className="order-header">
-    <input
-      type="checkbox"
-      checked={selectedOrders.includes(order._id)}
-      onChange={() => handleSelectOrder(order._id)}
-    />
-    <div>
-      <strong>{order.userId.firstName} {order.userId.lastName}</strong><br />
-      <span>{order.userId.email}</span><br />
-      <small className="order-id">🆔 {order._id}</small>
-    </div>
-    <div>
-      <span className="order-date">{new Date(order.createdAt).toLocaleString()}</span>
-    </div>
-  </div>
+            <div key={order._id} className="order-card">
+              <div className="order-header">
+                <input
+                  type="checkbox"
+                  checked={selectedOrders.includes(order._id)}
+                  onChange={() => handleSelectOrder(order._id)}
+                />
+                <div>
+                  <strong>{order.userId.firstName} {order.userId.lastName}</strong><br />
+                  <span>{order.userId.email}</span><br />
+                  <small className="order-id">🆔 {order._id}</small>
+                </div>
+                <div>
+                  <span className="order-date">{new Date(order.createdAt).toLocaleString()}</span>
+                </div>
+              </div>
 
-  {/* Ürünler Bölümü */}
-  <div className="order-items">
-    <strong>Ürünler:</strong>
-    <ul>
-      {order.items.map((item, idx) => (
-        <li key={idx}>
-          {item.productId?.name || 'Ürün adı yok'} x {item.quantity}
-        </li>
-      ))}
-    </ul>
-  </div>
+              {/* Ürünler Bölümü */}
+              <div className="order-items">
+                <strong>Ürünler:</strong>
+                <ul>
+                  {order.items.map((item, idx) => (
+                    <li key={idx}>
+                      {item.productId?.name || 'Ürün adı yok'} x {item.quantity}
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-  {/* Adres Bölümü */}
-  <div className="order-address">
-    <strong>Adres:</strong><br />
-    {(() => {
-      const addressObj = order.userId.addresses?.find(addr => addr._id.toString() === order.addressId?.toString());
-      if (addressObj) {
-        return `${addressObj.title} - ${addressObj.fullAddress}`;
-      } else {
-        return <em>Adres bulunamadı.</em>;
-      }
-    })()}
-  </div>
-
-</div>
-
+              {/* Adres Bölümü */}
+              <div className="order-address">
+                <strong>Adres:</strong><br />
+                {address.title ? (
+                  <>
+                    <div><strong>{address.title}</strong></div>
+                    <div>{address.fullAddress}</div>
+                    <div>{address.city}, {address.district}</div>
+                    <div>📱 {address.phone}</div>
+                  </>
+                ) : (
+                  <em>Adres bilgisi bulunamadı.</em>
+                )}
+              </div>
+            </div>
           );
         })
       )}
