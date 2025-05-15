@@ -24,7 +24,7 @@ const AdminCreate = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('https://api.sakaoglustore.net/api/admins/add', form, {
+      await axios.post('http://localhost:5000/api/admins/add', form, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Admin başarıyla eklendi');

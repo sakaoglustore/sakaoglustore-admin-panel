@@ -6,6 +6,7 @@ const EditGiftBoxModal = ({ box, onClose, onSave, onDelete }) => {
   const [details, setDetails] = useState({
     price: box.price,
     description: box.description,
+    whatInside: box.whatInside || '',
     kdvOrani: box.kdvOrani,
     kutuUcreti: box.kutuUcreti,
     kargoUcreti: box.kargoUcreti || 0,
@@ -65,22 +66,53 @@ const EditGiftBoxModal = ({ box, onClose, onSave, onDelete }) => {
         <h2>{box.name} – Ürün Düzenleme</h2>
 
         <label>Açıklama</label>
-        <input type="text" value={details.description} onChange={(e) => handleDetailChange('description', e.target.value)} />
+        <input
+          type="text"
+          value={details.description}
+          onChange={(e) => handleDetailChange('description', e.target.value)}
+        />
+
+        <label>İçinden Çıkabilecekler</label>
+        <textarea
+          value={details.whatInside}
+          onChange={(e) => handleDetailChange('whatInside', e.target.value)}
+          placeholder="Örn: Çikolata, Defter, Kalem..."
+        />
 
         <label>Ham Fiyat (₺)</label>
-        <input type="number" value={details.price} onChange={(e) => handleDetailChange('price', e.target.value)} />
+        <input
+          type="number"
+          value={details.price}
+          onChange={(e) => handleDetailChange('price', e.target.value)}
+        />
 
         <label>KDV Oranı (örn: 0.2)</label>
-        <input type="number" value={details.kdvOrani} onChange={(e) => handleDetailChange('kdvOrani', e.target.value)} />
+        <input
+          type="number"
+          value={details.kdvOrani}
+          onChange={(e) => handleDetailChange('kdvOrani', e.target.value)}
+        />
 
         <label>Kutu Ücreti (₺)</label>
-        <input type="number" value={details.kutuUcreti} onChange={(e) => handleDetailChange('kutuUcreti', e.target.value)} />
+        <input
+          type="number"
+          value={details.kutuUcreti}
+          onChange={(e) => handleDetailChange('kutuUcreti', e.target.value)}
+        />
 
         <label>Kargo Ücreti (₺)</label>
-        <input type="number" value={details.kargoUcreti} onChange={(e) => handleDetailChange('kargoUcreti', e.target.value)} />
+        <input
+          type="number"
+          value={details.kargoUcreti}
+          onChange={(e) => handleDetailChange('kargoUcreti', e.target.value)}
+        />
 
         <label>Resim URL</label>
-        <input type="text" value={details.image} onChange={(e) => handleDetailChange('image', e.target.value)} />
+        <input
+          type="text"
+          value={details.image}
+          onChange={(e) => handleDetailChange('image', e.target.value)}
+        />
 
         <div className="total-price-preview">
           Toplam Fiyat: ₺{(

@@ -16,7 +16,7 @@ const AdminManage = () => {
 
   const fetchAdmins = async () => {
     try {
-      const res = await axios.get('https://api.sakaoglustore.net/api/admins/list', {
+      const res = await axios.get('http://localhost:5000/api/admins/list', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAdmins(res.data);
@@ -34,7 +34,7 @@ const AdminManage = () => {
   const handleSave = async (id, index) => {
     try {
       const body = { permissions: admins[index].permissions };
-      await axios.put(`https://api.sakaoglustore.net/api/admins/update/${id}`, body, {
+      await axios.put(`http://localhost:5000/api/admins/update/${id}`, body, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Güncellendi');
@@ -49,7 +49,7 @@ const AdminManage = () => {
     if (!onay) return;
 
     try {
-      await axios.delete(`https://api.sakaoglustore.net/api/admins/delete/${id}`, {
+      await axios.delete(`http://localhost:5000/api/admins/delete/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAdmins(admins.filter((a) => a._id !== id));

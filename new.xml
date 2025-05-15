@@ -1,0 +1,24 @@
+<document>
+<cargo>
+<receiver_name>Alıcı Adı</receiver_name>
+<receiver_address>Alıcı Adresi</receiver_address>
+<city>İstanbul</city>
+<town>Beykoz</town>
+<phone_work>2123457654</phone_work>
+<phone_gsm>5453214532</phone_gsm>
+<email_address>test@test.com</email_address>
+<tax_number>1234567890</tax_number>
+<cargo_type>1</cargo_type>
+<payment_type>0</payment_type>
+<dispatch_number>12343</dispatch_number>
+<referans_number>1234</referans_number>
+<cargo_count>1</cargo_count>
+<cargo_content>Kargo İçeriği</cargo_content>
+<collection_type>0</collection_type>
+<invoice_number>123456</invoice_number>
+<invoice_amount>12</invoice_amount>
+<file_bag_number></file_bag_number>
+<campaign_id></campaign_id>
+<campaign_code></campaign_code>
+</cargo>
+</document>

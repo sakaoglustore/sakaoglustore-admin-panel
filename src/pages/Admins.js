@@ -28,7 +28,7 @@ const Admins = () => {
 
   const fetchAdmins = async () => {
     try {
-      const res = await axios.get('https://api.sakaoglustore.net/api/admins/list', {
+      const res = await axios.get('http://localhost:5000/api/admins/list', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setAdmins(res.data);
@@ -40,7 +40,7 @@ const Admins = () => {
   const handleAdd = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('https://api.sakaoglustore.net/api/admins/add', form, {
+      await axios.post('http://localhost:5000/api/admins/add', form, {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert('Admin eklendi');
