@@ -28,7 +28,7 @@ const Orders = () => {
   const fetchOrders = async (searchQuery = '', pageNumber = 1) => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
+      const res = await axios.get(`https://api.sakaoglustore.net/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrders(res.data.orders || []);
@@ -52,7 +52,7 @@ const Orders = () => {
     try {
       const newTracking = trackingInputs[orderId]?.trim();
       if (!newTracking) return;
-      await axios.put(`http://localhost:5000/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
+      await axios.put(`https://api.sakaoglustore.net/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchOrders(query, page);

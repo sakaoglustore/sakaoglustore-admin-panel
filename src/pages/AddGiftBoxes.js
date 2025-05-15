@@ -24,7 +24,7 @@ const AddGiftBox = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/gifts', form, {
+      await axios.post('https://api.sakaoglustore.net/api/gifts', form, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Ürün eklendi!');
