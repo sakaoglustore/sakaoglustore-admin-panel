@@ -3,7 +3,11 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import * as pdfjs from 'pdfjs-dist';
 import './Orders.css';
+
+// PDF.js çalışma URL'sini ayarla
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -13,6 +17,8 @@ const Orders = () => {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [paymentText, setPaymentText] = useState('');
+  const [verificationError, setVerificationError] = useState('');
 
   const token = JSON.parse(localStorage.getItem('admin'))?.token;
   const admin = JSON.parse(localStorage.getItem('admin'))?.user;
@@ -26,7 +32,7 @@ const Orders = () => {
   const fetchOrders = async (searchQuery = '', pageNumber = 1) => {
     setLoading(true);
     try {
-      const res = await axios.get(`https://api.sakaoglustore.net/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
+      const res = await axios.get(`http://localhost:5000/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrders(res.data.orders || []);
@@ -50,7 +56,7 @@ const Orders = () => {
     try {
       const newTracking = trackingInputs[orderId]?.trim();
       if (!newTracking) return;
-      await axios.put(`https://api.sakaoglustore.net/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
+      await axios.put(`http://localhost:5000/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchOrders(query, page);
@@ -116,6 +122,44 @@ const Orders = () => {
 
   const prevPage = () => {
     if (page > 1) setPage(prev => prev - 1);
+  };  const handleVerifyOrder = async (orderId, status) => {
+    try {
+      await axios.put(
+        `http://localhost:5000/api/orders/verify-order/${orderId}`,
+        { status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchOrders(query, page);
+    } catch (error) {
+      console.error('Hata detayı:', error.response?.data || error.message);
+      alert(`Sipariş durumu güncellenirken hata oluştu: ${error.response?.data?.message || error.message}`);
+      setVerificationError(`Güncelleme hatası: ${error.response?.data?.message || error.message}`);
+    }
+  };  const handlePaymentVerification = () => {
+    // Metindeki tüm sipariş ID'lerini bul
+    const references = paymentText.match(/[a-f\d]{24}/g) || [];
+    let foundOrders = 0;
+    let processedOrders = 0;
+    
+    // Bulunan her ID için sipariş eşleştirmesi yap
+    references.forEach(reference => {
+      const matchingOrder = orders.find(order => order._id === reference);      if (matchingOrder) {
+        foundOrders++;
+        if (matchingOrder.status === 'pending') {
+          handleVerifyOrder(matchingOrder._id, 'confirmed');
+          processedOrders++;
+        }
+      }
+    });
+
+    if (foundOrders === 0) {
+      setVerificationError('Hiç geçerli sipariş ID\'si bulunamadı.');
+    } else {
+      setVerificationError(`${foundOrders} sipariş bulundu, ${processedOrders} sipariş onaylandı.`);
+      if (processedOrders > 0) {
+        setPaymentText('');
+      }
+    }
   };
 
   if (!isSuperAdmin && !admin?.permissions?.orders) {
@@ -191,6 +235,31 @@ const Orders = () => {
                   <em>Adres bilgisi bulunamadı.</em>
                 )}
               </div>
+
+              <div className="order-status">
+                <strong>Durum: </strong>
+                <span className={`status-${order.status}`}>
+                  {order.status === 'pending' ? 'Ödeme Bekleniyor' : 
+                   order.status === 'confirmed' ? 'Onaylandı' : 'Reddedildi'}
+                </span>
+              </div>
+
+              {order.status === 'pending' && (
+                <div className="order-actions">
+                  <button 
+                    className="confirm-btn"
+                    onClick={() => handleVerifyOrder(order._id, 'confirmed')}
+                  >
+                    Ödemeyi Onayla
+                  </button>
+                  <button 
+                    className="reject-btn"
+                    onClick={() => handleVerifyOrder(order._id, 'rejected')}
+                  >
+                    Reddet
+                  </button>
+                </div>
+              )}
             </div>
           );
         })
@@ -200,6 +269,54 @@ const Orders = () => {
         <button onClick={prevPage} disabled={page === 1}>⬅️ Önceki</button>
         <span>Sayfa {page}</span>
         <button onClick={nextPage} disabled={!hasMore}>Sonraki ➡️</button>
+      </div>
+
+      {/* Ödeme Doğrulama Bölümü */}      <div className="payment-verification">
+        <h3>Ödeme Doğrulama</h3>
+        <div className="file-upload">
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={async (e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                  try {
+                    const typedarray = new Uint8Array(event.target.result);
+                    const pdf = await pdfjs.getDocument(typedarray).promise;
+                    let fullText = '';
+                    
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                      const page = await pdf.getPage(i);
+                      const textContent = await page.getTextContent();
+                      const pageText = textContent.items.map(item => item.str).join(' ');
+                      fullText += pageText + ' ';
+                    }
+                    
+                    setPaymentText(fullText);
+                  } catch (error) {
+                    console.error('PDF okuma hatası:', error);
+                    setVerificationError('PDF dosyası okunamadı');
+                  }
+                };
+                reader.readAsArrayBuffer(file);
+              }
+            }}
+          />
+          <span>veya metni yapıştırın:</span>
+        </div>
+        <textarea
+          placeholder="Dekonttaki metni buraya yapıştırın veya PDF yükleyin..."
+          value={paymentText}
+          onChange={(e) => setPaymentText(e.target.value)}
+          className="payment-input"
+          rows={4}
+        />
+        <button onClick={handlePaymentVerification} className="verify-payment-btn">
+          Doğrula
+        </button>
+        {verificationError && <div className="verification-error">{verificationError}</div>}
       </div>
     </div>
   );

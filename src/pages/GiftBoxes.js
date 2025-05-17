@@ -18,7 +18,7 @@ const GiftBoxes = () => {
 
   const fetchGiftBoxes = async () => {
     try {
-      const res = await axios.get('https://api.sakaoglustore.net/api/gifts/all', {
+      const res = await axios.get('http://localhost:5000/api/gifts/all', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setGiftBoxes(res.data);
@@ -30,7 +30,7 @@ const GiftBoxes = () => {
 
   const handleSave = async (id, updatedData) => {
     try {
-      await axios.put(`https://api.sakaoglustore.net/api/gifts/${id}`, updatedData, {
+      await axios.put(`http://localhost:5000/api/gifts/${id}`, updatedData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSelectedBox(null);
@@ -45,7 +45,7 @@ const GiftBoxes = () => {
     if (!confirm) return;
 
     try {
-      await axios.delete(`https://api.sakaoglustore.net/api/gifts/${id}`, {
+      await axios.delete(`http://localhost:5000/api/gifts/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSelectedBox(null);
