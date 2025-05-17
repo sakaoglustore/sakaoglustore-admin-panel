@@ -3,11 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import * as pdfjs from 'pdfjs-dist';
 import './Orders.css';
-
-// PDF.js çalışma URL'sini ayarla
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -124,41 +120,40 @@ const Orders = () => {
     if (page > 1) setPage(prev => prev - 1);
   };  const handleVerifyOrder = async (orderId, status) => {
     try {
-      await axios.put(
+      const response = await axios.put(
         `https://api.sakaoglustore.net/api/orders/verify-order/${orderId}`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      if (status === 'confirmed' && response.data.order.confirmationCode) {
+        alert(`Sipariş onaylandı! Onay Kodu: ${response.data.order.confirmationCode}`);
+      }
+      
       fetchOrders(query, page);
     } catch (error) {
       console.error('Hata detayı:', error.response?.data || error.message);
       alert(`Sipariş durumu güncellenirken hata oluştu: ${error.response?.data?.message || error.message}`);
       setVerificationError(`Güncelleme hatası: ${error.response?.data?.message || error.message}`);
     }
-  };  const handlePaymentVerification = () => {
-    // Metindeki tüm sipariş ID'lerini bul
-    const references = paymentText.match(/[a-f\d]{24}/g) || [];
-    let foundOrders = 0;
-    let processedOrders = 0;
+  };
+  const handlePaymentVerification = () => {
+    // Dekonttaki referans numarasını çıkar
+    const reference = paymentText.split('(')[0].trim();
     
-    // Bulunan her ID için sipariş eşleştirmesi yap
-    references.forEach(reference => {
-      const matchingOrder = orders.find(order => order._id === reference);      if (matchingOrder) {
-        foundOrders++;
-        if (matchingOrder.status === 'pending') {
-          handleVerifyOrder(matchingOrder._id, 'confirmed');
-          processedOrders++;
-        }
-      }
-    });
+    // Sipariş ID'si ile eşleştirme yap
+    const matchingOrder = orders.find(order => order._id === reference);
 
-    if (foundOrders === 0) {
-      setVerificationError('Hiç geçerli sipariş ID\'si bulunamadı.');
-    } else {
-      setVerificationError(`${foundOrders} sipariş bulundu, ${processedOrders} sipariş onaylandı.`);
-      if (processedOrders > 0) {
+    if (matchingOrder) {
+      if (matchingOrder.status === 'pending') {
+        handleVerifyOrder(matchingOrder._id, 'confirmed');
+        setVerificationError('');
         setPaymentText('');
+      } else {
+        setVerificationError('Bu sipariş zaten onaylanmış veya reddedilmiş.');
       }
+    } else {
+      setVerificationError('Eşleşen sipariş bulunamadı.');
     }
   };
 
@@ -271,47 +266,15 @@ const Orders = () => {
         <button onClick={nextPage} disabled={!hasMore}>Sonraki ➡️</button>
       </div>
 
-      {/* Ödeme Doğrulama Bölümü */}      <div className="payment-verification">
+      {/* Ödeme Doğrulama Bölümü */}
+      <div className="payment-verification">
         <h3>Ödeme Doğrulama</h3>
-        <div className="file-upload">
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={async (e) => {
-              const file = e.target.files[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = async function(event) {
-                  try {
-                    const typedarray = new Uint8Array(event.target.result);
-                    const pdf = await pdfjs.getDocument(typedarray).promise;
-                    let fullText = '';
-                    
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                      const page = await pdf.getPage(i);
-                      const textContent = await page.getTextContent();
-                      const pageText = textContent.items.map(item => item.str).join(' ');
-                      fullText += pageText + ' ';
-                    }
-                    
-                    setPaymentText(fullText);
-                  } catch (error) {
-                    console.error('PDF okuma hatası:', error);
-                    setVerificationError('PDF dosyası okunamadı');
-                  }
-                };
-                reader.readAsArrayBuffer(file);
-              }
-            }}
-          />
-          <span>veya metni yapıştırın:</span>
-        </div>
-        <textarea
-          placeholder="Dekonttaki metni buraya yapıştırın veya PDF yükleyin..."
+        <input
+          type="text"
+          placeholder="Dekonttaki sipariş ID'sini girin..."
           value={paymentText}
           onChange={(e) => setPaymentText(e.target.value)}
           className="payment-input"
-          rows={4}
         />
         <button onClick={handlePaymentVerification} className="verify-payment-btn">
           Doğrula
