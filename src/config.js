@@ -1,7 +1,7 @@
 // API URL configuration
 const config = {
   // Development API URL
-  development: 'http://localhost:5000',
+  development: 'https://api.sakaoglustore.net',
   
   // Production API URL - to be updated when deploying
   production: 'https://api.sakaoglustore.com'
