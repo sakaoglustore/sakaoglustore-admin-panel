@@ -3,7 +3,13 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+import { GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
+import API_URL from '../config';
+import { getBoxContents, getDebugInfo } from '../utils/orderHelper';
 import './Orders.css';
+
+GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.js`;
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -12,9 +18,9 @@ const Orders = () => {
   const [trackingInputs, setTrackingInputs] = useState({});
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [paymentText, setPaymentText] = useState('');
+  const [hasMore, setHasMore] = useState(true);  const [successMessage, setSuccessMessage] = useState('');
   const [verificationError, setVerificationError] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const token = JSON.parse(localStorage.getItem('admin'))?.token;
   const admin = JSON.parse(localStorage.getItem('admin'))?.user;
@@ -24,13 +30,14 @@ const Orders = () => {
   useEffect(() => {
     fetchOrders(query, page);
   }, [page, query]);
-
   const fetchOrders = async (searchQuery = '', pageNumber = 1) => {
     setLoading(true);
     try {
-      const res = await axios.get(`https://api.sakaoglustore.net/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
+      const res = await axios.get(`${API_URL}/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log('API Yanıtı:', JSON.stringify(res.data.orders, null, 2));
+      console.log('Sipariş Öğeleri:', res.data.orders.map(order => order.items));
       setOrders(res.data.orders || []);
       setHasMore(res.data.orders?.length === pageSize);
     } catch (err) {
@@ -52,7 +59,7 @@ const Orders = () => {
     try {
       const newTracking = trackingInputs[orderId]?.trim();
       if (!newTracking) return;
-      await axios.put(`https://api.sakaoglustore.net/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
+      await axios.put(`${API_URL}/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchOrders(query, page);
@@ -121,7 +128,7 @@ const Orders = () => {
   };  const handleVerifyOrder = async (orderId, status) => {
     try {
       const response = await axios.put(
-        `https://api.sakaoglustore.net/api/orders/verify-order/${orderId}`,
+        `${API_URL}/api/orders/verify-order/${orderId}`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -136,24 +143,126 @@ const Orders = () => {
       alert(`Sipariş durumu güncellenirken hata oluştu: ${error.response?.data?.message || error.message}`);
       setVerificationError(`Güncelleme hatası: ${error.response?.data?.message || error.message}`);
     }
-  };
-  const handlePaymentVerification = () => {
-    // Dekonttaki referans numarasını çıkar
-    const reference = paymentText.split('(')[0].trim();
-    
-    // Sipariş ID'si ile eşleştirme yap
-    const matchingOrder = orders.find(order => order._id === reference);
+  };  const extractOrderIdFromPDF = async (file) => {
+    return new Promise((resolve, reject) => {
+      const fileReader = new FileReader();
+      
+      fileReader.onload = async function() {
+        try {
+          const typedarray = new Uint8Array(this.result);
+          const pdf = await pdfjsLib.getDocument(typedarray).promise;
+          const page = await pdf.getPage(1);
+          const textContent = await page.getTextContent();
+          const text = textContent.items.map(item => item.str).join(' ');
 
-    if (matchingOrder) {
-      if (matchingOrder.status === 'pending') {
-        handleVerifyOrder(matchingOrder._id, 'confirmed');
-        setVerificationError('');
-        setPaymentText('');
-      } else {
-        setVerificationError('Bu sipariş zaten onaylanmış veya reddedilmiş.');
-      }
-    } else {
-      setVerificationError('Eşleşen sipariş bulunamadı.');
+          // PDF içeriğini temizle
+          const cleanText = text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, " ")
+                              .replace(/\s+/g, " ")
+                              .trim();
+          
+          // Tüm MongoDB ObjectId formatına benzeyen 24 karakterlik hexadecimal ID'leri bul
+          const idMatches = [...cleanText.matchAll(/\b([a-f0-9]{24})\b/gi)].map(match => match[1]);
+          
+          if (idMatches.length === 0) {
+            reject(new Error('PDF içinde geçerli sipariş ID\'si bulunamadı'));
+            return;
+          }
+          
+          resolve({
+            orderIds: idMatches,
+            fullText: text
+          });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      fileReader.onerror = () => reject(new Error('PDF dosyası okunamadı'));
+      fileReader.readAsArrayBuffer(file);
+    });
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file || !file.type.includes('pdf')) {
+      setVerificationError('Lütfen geçerli bir PDF dosyası yükleyin.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setVerificationError('');
+    setSuccessMessage(null);
+
+    try {
+      const { orderIds, fullText } = await extractOrderIdFromPDF(file);
+      
+      // Başarılı ve başarısız işlemleri takip et
+      const results = {
+        success: 0,
+        failed: 0,
+        skipped: 0,
+        confirmationCodes: []
+      };
+
+      // Tüm ID'ler için paralel işlem yap
+      await Promise.all(orderIds.map(async (orderId) => {
+        const matchingOrder = orders.find(order => order._id === orderId);
+
+        if (matchingOrder) {
+          if (matchingOrder.status === 'pending') {
+            try {
+              const response = await axios.put(
+                `${API_URL}/api/orders/verify-order/${orderId}`,
+                { 
+                  status: 'confirmed',
+                  paymentReference: fullText
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+
+              if (response.data.order.confirmationCode) {
+                results.confirmationCodes.push({
+                  orderId: orderId,
+                  code: response.data.order.confirmationCode
+                });
+              }
+              results.success++;
+            } catch (error) {
+              console.error(`Hata (ID: ${orderId}):`, error);
+              results.failed++;
+            }
+          } else {
+            results.skipped++;
+          }
+        } else {
+          results.failed++;
+        }
+      }));      // Sonuçları göster
+      let message = `İşlem tamamlandı!`;
+      const resultDetails = [];
+      
+      if (results.success > 0) resultDetails.push(`${results.success} sipariş onaylandı`);
+      if (results.skipped > 0) resultDetails.push(`${results.skipped} sipariş zaten onaylanmış`);
+      if (results.failed > 0) resultDetails.push(`${results.failed} sipariş onaylanamadı`);
+      
+      const confirmationInfo = results.confirmationCodes.length > 0 
+        ? results.confirmationCodes.map(({orderId, code}) => `ID: ${orderId.slice(-6)} -> Kod: ${code}`).join('\n')
+        : '';
+      
+      setSuccessMessage({
+        mainMessage: message,
+        details: resultDetails,
+        confirmationCodes: confirmationInfo
+      });
+      
+      setVerificationError('');
+      event.target.value = ''; // Dosya inputunu temizle
+      fetchOrders(query, page);
+    } catch (error) {
+      console.error('Hata detayı:', error);
+      setVerificationError(`Hata: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -162,21 +271,57 @@ const Orders = () => {
   }
 
   return (
-    <div className="orders-container">
-      <h2 className="orders-title">📦 Gelen Siparişler</h2>
-
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+    <div className="orders-container">      <h2 className="orders-title">Gelen Siparişler</h2>      <div className="search-controls">
         <input
           type="text"
           placeholder="İsim, e-posta ya da sipariş numarası ile ara..."
           value={query}
           onChange={handleSearch}
           className="search-input"
-        />
-        <button onClick={exportToXML} className="excel-export-btn">
-          📥 Siparişleri XML İndir
+        />        <button onClick={exportToXML} className="excel-export-btn">
+          Siparişleri XML İndir
         </button>
+        
+        <label className="file-upload-button" title="PDF faturayı yükleyin. Sistem otomatik olarak sipariş numaralarını tespit edecek ve siparişleri doğrulayacaktır.">
+          <input
+            type="file"
+            accept=".pdf"
+            onChange={handleFileUpload}
+            className="file-input"
+            disabled={isProcessing}
+          />
+          <div className="top-file-upload-ui">
+            <span className="top-file-upload-text">PDF Fatura Yükle</span>
+            {isProcessing && <div className="mini-spinner"></div>}
+          </div>
+        </label>
       </div>
+      
+      {verificationError && <div className="verification-error">{verificationError}</div>}
+      
+      {successMessage && (
+        <div className="verification-success">
+          <div className="success-header">
+            <div className="success-icon">✓</div>
+            <h4>{successMessage.mainMessage}</h4>
+            <button className="close-success" onClick={() => setSuccessMessage(null)}>×</button>
+          </div>
+          <div className="success-details">
+            {successMessage.details.map((detail, index) => (
+              <div key={index} className="success-detail-item">
+                {index === 0 ? '✅ ' : index === 1 ? '⏭️ ' : '❌ '}{detail}
+              </div>
+            ))}
+            
+            {successMessage.confirmationCodes && (
+              <div className="confirmation-codes">
+                <h5>Onay Kodları:</h5>
+                <pre>{successMessage.confirmationCodes}</pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="loading">Yükleniyor...</div>
@@ -186,54 +331,76 @@ const Orders = () => {
         orders.map(order => {
           const address = order.address || {};
 
-          return (
-            <div key={order._id} className="order-card">
-              <div className="order-header">
+          return (        <div key={order._id} className="order-card">
+        <div className="order-header">
                 <input
                   type="checkbox"
                   checked={selectedOrders.includes(order._id)}
                   onChange={() => handleSelectOrder(order._id)}
                 />
-                <div>
-                  <strong>{order.userId.firstName} {order.userId.lastName}</strong><br />
-                  <span>{order.userId.email}</span><br />
-                  <small className="order-id">🆔 {order._id}</small>
+                <div className="order-header-info">
+                  <strong>{order.userId.firstName} {order.userId.lastName}</strong>
+                  <div className="order-meta">
+                    {order.userId.email}
+                    <span className="order-id">{order._id}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="order-date">{new Date(order.createdAt).toLocaleString()}</span>
+                <div className="order-date">
+                  {new Date(order.createdAt).toLocaleString()}
+                </div>
+              </div><div className="order-content">
+                <div className="order-section">
+                  <div className="order-section-title">Ürünler</div>                  <ul className="order-items">                    {order.items.map((item, idx) => {
+                      console.log("Ürün bilgileri:", getDebugInfo(item));
+                      // Yardımcı fonksiyon kullanarak içeriği alıyoruz
+                      const boxContents = getBoxContents(item);
+                      
+                      return (
+                        <li key={idx} className="order-item">
+                          {item.productId?.name || 'Ürün adı yok'} x {item.quantity}
+                          
+                          {/* Kutu İçeriği */}
+                          {boxContents ? (
+                            <div className="order-item-extras">
+                              <span className="order-item-content-label">📦 Kutu İçeriği:</span>
+                              <div className="order-item-content-box">
+                                {boxContents}
+                              </div>
+                            </div>
+                          ) : null}
+                          
+                          {/* Sipariş notu varsa göster */}
+                          {item.orderNote && item.orderNote !== boxContents && (
+                            <div className="order-item-extras">
+                              <span className="order-item-content-label">📝 Not:</span>
+                              <div className="order-item-content-box order-note">
+                                {item.orderNote}
+                              </div>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                <div className="order-section">
+                  <div className="order-section-title">Teslimat Adresi</div>
+                  {address.title ? (
+                    <div>
+                      <div>{address.title}</div>
+                      <div>{address.fullAddress}</div>
+                      <div>{address.city}, {address.district}</div>
+                      <div>{address.phone}</div>
+                    </div>
+                  ) : (
+                    <em>Adres bilgisi bulunamadı.</em>
+                  )}
                 </div>
               </div>
 
-              {/* Ürünler Bölümü */}
-              <div className="order-items">
-                <strong>Ürünler:</strong>
-                <ul>
-                  {order.items.map((item, idx) => (
-                    <li key={idx}>
-                      {item.productId?.name || 'Ürün adı yok'} x {item.quantity}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Adres Bölümü */}
-              <div className="order-address">
-                <strong>Adres:</strong><br />
-                {address.title ? (
-                  <>
-                    <div><strong>{address.title}</strong></div>
-                    <div>{address.fullAddress}</div>
-                    <div>{address.city}, {address.district}</div>
-                    <div>📱 {address.phone}</div>
-                  </>
-                ) : (
-                  <em>Adres bilgisi bulunamadı.</em>
-                )}
-              </div>
-
-              <div className="order-status">
-                <strong>Durum: </strong>
-                <span className={`status-${order.status}`}>
+              <div className="order-section" style={{ marginTop: '15px' }}>
+                <strong>Durum: </strong>                <span className={`status-${order.status}`}>
                   {order.status === 'pending' ? 'Ödeme Bekleniyor' : 
                    order.status === 'confirmed' ? 'Onaylandı' : 'Reddedildi'}
                 </span>
@@ -258,28 +425,10 @@ const Orders = () => {
             </div>
           );
         })
-      )}
-
-      <div className="pagination-buttons">
-        <button onClick={prevPage} disabled={page === 1}>⬅️ Önceki</button>
+      )}      <div className="pagination-buttons">
+        <button onClick={prevPage} disabled={page === 1}>Önceki</button>
         <span>Sayfa {page}</span>
-        <button onClick={nextPage} disabled={!hasMore}>Sonraki ➡️</button>
-      </div>
-
-      {/* Ödeme Doğrulama Bölümü */}
-      <div className="payment-verification">
-        <h3>Ödeme Doğrulama</h3>
-        <input
-          type="text"
-          placeholder="Dekonttaki sipariş ID'sini girin..."
-          value={paymentText}
-          onChange={(e) => setPaymentText(e.target.value)}
-          className="payment-input"
-        />
-        <button onClick={handlePaymentVerification} className="verify-payment-btn">
-          Doğrula
-        </button>
-        {verificationError && <div className="verification-error">{verificationError}</div>}
+        <button onClick={nextPage} disabled={!hasMore}>Sonraki</button>
       </div>
     </div>
   );
