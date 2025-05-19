@@ -64,7 +64,7 @@ const Orders = () => {
   const fetchOrders = async (searchQuery = '', pageNumber = 1) => {
     setLoading(true);
     try {
-      let apiUrl = `http://localhost:5000/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`;
+      let apiUrl = `https://api.sakaoglustore.net/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`;
       
       // Add date range filters if dates are selected
       if (startDate && endDate) {
@@ -125,7 +125,7 @@ const Orders = () => {
     try {
       const newTracking = trackingInputs[orderId]?.trim();
       if (!newTracking) return;
-      await axios.put(`http://localhost:5000/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
+      await axios.put(`https://api.sakaoglustore.net/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchOrders(query, page);
@@ -230,7 +230,7 @@ const Orders = () => {
           }
 
           const response = await axios.put(
-            `http://localhost:5000/api/orders/tracking-by-reference`,
+            `https://api.sakaoglustore.net/api/orders/tracking-by-reference`,
             { 
               referenceNumber: refString,
               trackingNumber: trackString
@@ -297,7 +297,7 @@ const Orders = () => {
       const formattedEndDate = new Date(endDate).toISOString();
       
       const res = await axios.get(
-        `http://localhost:5000/api/orders?page=${page}&limit=${xmlPageSize}&startDate=${formattedStartDate}&endDate=${formattedEndDate}&status=confirmed`,
+        `https://api.sakaoglustore.net/api/orders?page=${page}&limit=${xmlPageSize}&startDate=${formattedStartDate}&endDate=${formattedEndDate}&status=confirmed`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -507,7 +507,7 @@ const Orders = () => {
   };  const handleVerifyOrder = async (orderId, status) => {
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/orders/verify-order/${orderId}`,
+        `https://api.sakaoglustore.net/api/orders/verify-order/${orderId}`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -591,7 +591,7 @@ const Orders = () => {
           if (matchingOrder.status === 'pending') {
             try {
               const response = await axios.put(
-                `http://localhost:5000/api/orders/verify-order/${orderId}`,
+                `https://api.sakaoglustore.net/api/orders/verify-order/${orderId}`,
                 { 
                   status: 'confirmed',
                   paymentReference: fullText
