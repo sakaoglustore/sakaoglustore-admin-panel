@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import '../pages/GiftBoxes.css';
 
-const EditGiftBoxModal = ({ box, onClose, onSave, onDelete }) => {
-  const [items, setItems] = useState(JSON.parse(JSON.stringify(box.items)));
-  const [details, setDetails] = useState({
+const EditGiftBoxModal = ({ box, onClose, onSave, onDelete }) => {  const [items, setItems] = useState({
+    low: box.items?.low || [],
+    medium: box.items?.medium || [],
+    high: box.items?.high || [],
+    maximum: box.items?.maximum || []
+  });  const [details, setDetails] = useState({
+    name: box.name, // Add the name field to maintain it
     price: box.price,
     description: box.description,
     whatInside: box.whatInside || '',
@@ -39,25 +43,33 @@ const EditGiftBoxModal = ({ box, onClose, onSave, onDelete }) => {
         ? parseFloat(value) || 0
         : value
     }));
-  };
-
-  const handleSave = () => {
+  };  const handleSave = () => {    
+    // Ensure all items have both name and id before saving
     const cleanedItems = {
       low: items.low.filter(i => i.name.trim() && i.id.trim()),
       medium: items.medium.filter(i => i.name.trim() && i.id.trim()),
       high: items.high.filter(i => i.name.trim() && i.id.trim()),
+      maximum: items.maximum.filter(i => i.name.trim() && i.id.trim()),
     };
+
+    console.log("Maximum items before save:", items.maximum);
+    console.log("Cleaned maximum items:", cleanedItems.maximum);
 
     const fullPrice =
       Number(details.price || 0) * (1 + Number(details.kdvOrani || 0)) +
       Number(details.kutuUcreti || 0) +
       Number(details.kargoUcreti || 0);
 
-    onSave(box._id, {
+    // Create the complete update payload with all necessary fields
+    const updatePayload = {
       ...details,
       items: cleanedItems,
       fullPrice: parseFloat(fullPrice.toFixed(2))
-    });
+    };
+    
+    console.log("Sending update payload:", updatePayload);
+    console.log("Items in payload:", updatePayload.items);
+    onSave(box._id, updatePayload);
   };
 
   return (
@@ -120,12 +132,15 @@ const EditGiftBoxModal = ({ box, onClose, onSave, onDelete }) => {
             Number(details.kutuUcreti || 0) +
             Number(details.kargoUcreti || 0)
           ).toFixed(2)}
-        </div>
-
-        <div className="editable-items">
-          {['low', 'medium', 'high'].map(category => (
+        </div>        <div className="editable-items">
+          {['low', 'medium', 'high', 'maximum'].map(category => (
             <div key={category}>
-              <h4>{category.toUpperCase()} Items</h4>
+              <h4>
+                {category === 'low' ? 'Küçük Boy Ürünler' :
+                 category === 'medium' ? 'Orta Boy Ürünler' :
+                 category === 'high' ? 'Büyük Boy Ürünler' :
+                 'Maximum Boy Ürünler'}
+              </h4>
               {items[category]?.map((item, i) => (
                 <div key={i} className="item-row">
                   <input

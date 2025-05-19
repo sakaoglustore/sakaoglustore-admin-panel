@@ -15,7 +15,6 @@ const GiftBoxes = () => {
   useEffect(() => {
     fetchGiftBoxes();
   }, []);
-
   const fetchGiftBoxes = async () => {
     try {
       const res = await axios.get('https://api.sakaoglustore.net/api/gifts/all', {
@@ -24,19 +23,22 @@ const GiftBoxes = () => {
       setGiftBoxes(res.data);
       setLoading(false);
     } catch (err) {
+      console.error("Error fetching gift boxes:", err);
       setLoading(false);
     }
   };
-
   const handleSave = async (id, updatedData) => {
     try {
-      await axios.put(`https://api.sakaoglustore.net/api/gifts/${id}`, updatedData, {
+      console.log('Saving gift box data:', id, updatedData);
+      const response = await axios.put(`https://api.sakaoglustore.net/api/gifts/${id}`, updatedData, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Save response:', response.data);
       setSelectedBox(null);
       fetchGiftBoxes();
     } catch (err) {
-      alert('Kaydetme başarısız');
+      console.error('Save error:', err);
+      alert('Kaydetme başarısız: ' + (err.response?.data?.message || err.message));
     }
   };
 
