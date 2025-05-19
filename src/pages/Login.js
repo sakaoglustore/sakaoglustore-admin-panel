@@ -12,7 +12,7 @@ const Login = () => {
     setError('');
 
     try {
-      const res = await axios.post('https://api.sakaoglustore.net/api/adminAuth', {
+      const res = await axios.post('http://localhost:5000/api/adminAuth', {
         identifier,
         password,
       });

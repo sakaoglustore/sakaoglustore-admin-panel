@@ -9,7 +9,7 @@ const Dashboard = () => {
     const fetchStats = async () => {
       const token = JSON.parse(localStorage.getItem('admin'))?.token;
       try {
-        const res = await axios.get('https://api.sakaoglustore.net/api/adminStats/daily-orders', {
+        const res = await axios.get('http://localhost:5000/api/adminStats/daily-orders', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setDailyOrders(res.data);

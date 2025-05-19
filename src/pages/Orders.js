@@ -6,7 +6,7 @@ import { saveAs } from 'file-saver';
 import * as pdfjsLib from 'pdfjs-dist/build/pdf';
 import { GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
 import API_URL from '../config';
-import { getBoxContents, getDebugInfo } from '../utils/orderHelper';
+import { getBoxContents, getDebugInfo, getItemName } from '../utils/orderHelper';
 import './Orders.css';
 
 GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.js`;
@@ -29,11 +29,10 @@ const Orders = () => {
 
   useEffect(() => {
     fetchOrders(query, page);
-  }, [page, query]);
-  const fetchOrders = async (searchQuery = '', pageNumber = 1) => {
+  }, [page, query]);  const fetchOrders = async (searchQuery = '', pageNumber = 1) => {
     setLoading(true);
     try {
-      const res = await axios.get(`https://api.sakaoglustore.net/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
+      const res = await axios.get(`http://localhost:5000/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       console.log('API Yanıtı:', JSON.stringify(res.data.orders, null, 2));
@@ -351,32 +350,23 @@ const Orders = () => {
               </div><div className="order-content">
                 <div className="order-section">
                   <div className="order-section-title">Ürünler</div>                  <ul className="order-items">                    {order.items.map((item, idx) => {
-                      console.log("Ürün bilgileri:", getDebugInfo(item));
-                      // Yardımcı fonksiyon kullanarak içeriği alıyoruz
-                      const boxContents = getBoxContents(item);
-                      
+                      // Sadece kutu başlığı ve adedi göster
+                      const itemNameDisplay = getItemName(item);
                       return (
                         <li key={idx} className="order-item">
-                          {item.productId?.name || 'Ürün adı yok'} x {item.quantity}
-                          
-                          {/* Kutu İçeriği */}
-                          {boxContents ? (
-                            <div className="order-item-extras">
-                              <span className="order-item-content-label">📦 Kutu İçeriği:</span>
-                              <div className="order-item-content-box">
-                                {boxContents}
-                              </div>
-                            </div>
-                          ) : null}
-                          
-                          {/* Sipariş notu varsa göster */}
-                          {item.orderNote && item.orderNote !== boxContents && (
-                            <div className="order-item-extras">
-                              <span className="order-item-content-label">📝 Not:</span>
-                              <div className="order-item-content-box order-note">
-                                {item.orderNote}
-                              </div>
-                            </div>
+                          <div className="order-item-header">
+                            <span className="product-name">{itemNameDisplay}</span>
+                            <span className="quantity-badge">x {item.quantity}</span>
+                          </div>
+                          {/* Kutu içeriğinden çıkan ürünler */}
+                          {order.orderItems && order.orderItems.length > 0 && (
+                            <ul className="box-contents-list">
+                              {order.orderItems.map((oi, oidx) => (
+                                <li key={oi._id || oidx} className="box-content-item">
+                                  <span className="box-content-dot">•</span> {oi.itemName}
+                                </li>
+                              ))}
+                            </ul>
                           )}
                         </li>
                       );

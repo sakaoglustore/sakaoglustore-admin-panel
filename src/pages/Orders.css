@@ -1,4 +1,21 @@
-﻿/* Modern minimalist tasarim */
+﻿.box-contents-list {
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+.box-content-item {
+  font-size: 1rem;
+  color: #0c4a6e;
+  margin-bottom: 0.15rem;
+  display: flex;
+  align-items: center;
+}
+.box-content-dot {
+  color: #0ea5e9;
+  font-size: 1.2em;
+  margin-right: 0.5em;
+}
+/* Modern minimalist tasarim */
 .orders-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -217,6 +234,53 @@
   border-bottom: none;
 }
 
+.order-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.product-name {
+  font-weight: 500;
+  color: #111827;
+}
+
+.quantity-badge {
+  background-color: #f3f4f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.order-item-name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0;
+}
+
+.item-name-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  min-width: 4rem;
+}
+
+.item-name-value {
+  font-size: 0.875rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.item-id {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-left: 0.5rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+
 .order-item-extras {
   margin-top: 0.75rem;
   padding-left: 0;
@@ -238,17 +302,21 @@
 }
 
 .order-item-content-box {
-  background-color: #f0f9ff; /* Daha belirgin mavi tonu */
-  border: 1px solid #93c5fd; /* Daha belirgin sınır */
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 0.375rem;
-  padding: 0.75rem 1rem;
-  color: #1e40af; /* Daha koyu mavi metin */
-  font-size: 0.9rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
+  padding: 0.5rem 0.75rem;
   margin-top: 0.25rem;
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-size: 0.875rem;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+/* Not türü için farklı stil */
+.order-note {
+  background-color: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
 }
 
 .address-details div {
@@ -568,6 +636,37 @@
   overflow-x: auto;
   color: #334155;
   margin: 0;
+}
+
+.box-contents-primary {
+  margin-top: 0.75rem;
+  background-color: #f0f9ff;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.box-contents-primary .order-item-content-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0369a1;
+  letter-spacing: 0.025em;
+  margin-bottom: 0.5rem;
+}
+
+.order-item-content-box.highlight-content {
+  background-color: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-left: 4px solid #0ea5e9;
+  font-size: 1rem;
+  padding: 1rem;
+  color: #0c4a6e;
+  line-height: 1.5;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Kutu içeriği içindeki özel bilgileri ayırma */
+.highlight-content {
+  white-space: pre-line; /* Satır sonlarını korur */
 }
 
 @keyframes spin {
