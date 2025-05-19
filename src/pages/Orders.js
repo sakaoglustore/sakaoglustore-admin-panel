@@ -9,6 +9,30 @@ import API_URL from '../config';
 import { getBoxContents, getDebugInfo, getItemName } from '../utils/orderHelper';
 import './Orders.css';
 
+// Material-UI imports
+import { TextField } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import dayjs from 'dayjs';
+
+// Helper function to determine if an order requires manual shipping (has max or high items)
+const requiresManualShipping = (order) => {
+  // Check if order has maxItemCount or highItemCount
+  if (order.maxItemCount > 0 || order.highItemCount > 0) {
+    return true;
+  }
+  
+  // Check if any orderItems have itemType of 'maximum' or 'high'
+  if (order.orderItems && order.orderItems.length > 0) {
+    return order.orderItems.some(item => 
+      item.itemType === 'maximum' || item.itemType === 'high'
+    );
+  }
+  
+  return false;
+};
+
 GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.js`;
 
 const Orders = () => {
@@ -17,7 +41,10 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [trackingInputs, setTrackingInputs] = useState({});
   const [selectedOrders, setSelectedOrders] = useState([]);
-  const [page, setPage] = useState(1);  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [orderFilter, setOrderFilter] = useState('small-medium'); // 'small-medium', 'large-max'
+  const [manualShippingCount, setManualShippingCount] = useState(0);
   const [successMessage, setSuccessMessage] = useState(null);
   const [verificationError, setVerificationError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,25 +58,59 @@ const Orders = () => {
   const admin = JSON.parse(localStorage.getItem('admin'))?.user;
   const isSuperAdmin = admin?.isSuperAdmin;
   const pageSize = 50;
-  const xmlPageSize = 3000;
+  const xmlPageSize = 3000;  
 
-  useEffect(() => {
-    fetchOrders(query, page);
-  }, [page, query]);  const fetchOrders = async (searchQuery = '', pageNumber = 1) => {
+  // Define fetchOrders before using it in useEffect  
+  const fetchOrders = async (searchQuery = '', pageNumber = 1) => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`, {
+      let apiUrl = `http://localhost:5000/api/orders?query=${searchQuery}&page=${pageNumber}&limit=${pageSize}`;
+      
+      // Add date range filters if dates are selected
+      if (startDate && endDate) {
+        const formattedStartDate = new Date(startDate).toISOString();
+        const formattedEndDate = new Date(endDate).toISOString();
+        apiUrl += `&startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
+      }
+
+      const res = await axios.get(apiUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
       console.log('API Yanıtı:', JSON.stringify(res.data.orders, null, 2));
       console.log('Sipariş Öğeleri:', res.data.orders.map(order => order.items));
-      setOrders(res.data.orders || []);
+      
+      const allOrders = res.data.orders || [];
+      
+      // Filter orders based on item types
+      let filteredOrders = allOrders;
+      if (orderFilter === 'small-medium') {
+        filteredOrders = allOrders.filter(order => {
+          if (!order.orderItems || order.orderItems.length === 0) return false;
+          return order.orderItems.every(item => 
+            item.itemType !== 'high' && item.itemType !== 'maximum'
+          );
+        });
+      } else if (orderFilter === 'large-max') {
+        filteredOrders = allOrders.filter(order => {
+          if (!order.orderItems || order.orderItems.length === 0) return false;
+          return order.orderItems.some(item => 
+            item.itemType === 'high' || item.itemType === 'maximum'
+          );
+        });
+      }
+      
+      setOrders(filteredOrders);
+      setManualShippingCount(filteredOrders.length);
       setHasMore(res.data.orders?.length === pageSize);
     } catch (err) {
       console.error('Sipariş çekme hatası:', err);
-    }
-    setLoading(false);
+    }    setLoading(false);
   };
+  
+  useEffect(() => {
+    fetchOrders(query, page);
+  }, [page, query, orderFilter]); // startDate ve endDate çıkarıldı, sadece butona basıldığında filtre uygulanacak
 
   const handleSearch = (e) => {
     setQuery(e.target.value);
@@ -64,7 +125,7 @@ const Orders = () => {
     try {
       const newTracking = trackingInputs[orderId]?.trim();
       if (!newTracking) return;
-      await axios.put(`${API_URL}/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
+      await axios.put(`http://localhost:5000/api/orders/${orderId}/tracking`, { trackingNumber: newTracking }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchOrders(query, page);
@@ -169,7 +230,7 @@ const Orders = () => {
           }
 
           const response = await axios.put(
-            `${API_URL}/api/orders/tracking-by-reference`,
+            `http://localhost:5000/api/orders/tracking-by-reference`,
             { 
               referenceNumber: refString,
               trackingNumber: trackString
@@ -236,7 +297,7 @@ const Orders = () => {
       const formattedEndDate = new Date(endDate).toISOString();
       
       const res = await axios.get(
-        `${API_URL}/api/orders?page=${page}&limit=${xmlPageSize}&startDate=${formattedStartDate}&endDate=${formattedEndDate}&status=confirmed`,
+        `http://localhost:5000/api/orders?page=${page}&limit=${xmlPageSize}&startDate=${formattedStartDate}&endDate=${formattedEndDate}&status=confirmed`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -260,10 +321,27 @@ const Orders = () => {
       return;
     }
 
-    setXmlLoading(true);
-    try {
-      // İlk sayfayı çek ve toplam sayfa sayısını öğren
+    setXmlLoading(true);    try {
+      // Get orders and filter based on selected filter
       const firstPageData = await fetchOrdersForXml(1, startDate, endDate);
+      
+      // Filter orders based on size type
+      if (firstPageData?.orders) {
+        if (orderFilter === 'large-max') {
+          firstPageData.orders = firstPageData.orders.filter(order => {
+            return order.orderItems?.some(item => 
+              item.itemType === 'high' || item.itemType === 'maximum'
+            );
+          });
+        } else if (orderFilter === 'small-medium') {
+          firstPageData.orders = firstPageData.orders.filter(order => {
+            return order.orderItems?.every(item => 
+              item.itemType !== 'high' && item.itemType !== 'maximum'
+            );
+          });
+        }
+        firstPageData.total = firstPageData.orders.length;
+      }
       
       if (!firstPageData?.orders || !Array.isArray(firstPageData.orders) || firstPageData.orders.length === 0) {
         alert('Seçilen tarih aralığında onaylanmış sipariş bulunamadı');
@@ -316,11 +394,11 @@ const Orders = () => {
       }
 
       xmlContent += `\n</orders>`;
-      
-      // Dosya adına tarih aralığını ekle
+        // Dosya adına tarih aralığını ve sipariş türünü ekle
       const startDateStr = new Date(startDate).toLocaleDateString('tr-TR').replace(/\./g, '-');
       const endDateStr = new Date(endDate).toLocaleDateString('tr-TR').replace(/\./g, '-');
-      const fileName = `siparisler_${startDateStr}_${endDateStr}.xml`;
+      const sizeType = orderFilter === 'large-max' ? 'buyuk_max' : 'kucuk_orta';
+      const fileName = `${sizeType}_siparisler_${startDateStr}_${endDateStr}.xml`;
 
       const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
       saveAs(blob, fileName);
@@ -340,12 +418,33 @@ const Orders = () => {
     }
 
     setXmlLoading(true); // Aynı loading state'i kullanıyoruz
-    try {
-      // Siparişleri çek
+    try {      // Siparişleri çek ve filtreye göre ayır
       const data = await fetchOrdersForXml(1, startDate, endDate);
       
       if (!data?.orders || !Array.isArray(data.orders) || data.orders.length === 0) {
         alert('Seçilen tarih aralığında onaylanmış sipariş bulunamadı');
+        return;
+      }
+
+      // Siparişleri filtreye göre filtrele
+      if (data.orders && orderFilter !== 'all') {
+        if (orderFilter === 'large-max') {
+          data.orders = data.orders.filter(order => 
+            order.orderItems?.some(item => 
+              item.itemType === 'high' || item.itemType === 'maximum'
+            )
+          );
+        } else if (orderFilter === 'small-medium') {
+          data.orders = data.orders.filter(order => 
+            order.orderItems?.every(item => 
+              item.itemType !== 'high' && item.itemType !== 'maximum'
+            )
+          );
+        }
+      }
+
+      if (data.orders.length === 0) {
+        alert('Seçilen filtreye uygun sipariş bulunamadı');
         return;
       }
 
@@ -383,12 +482,11 @@ const Orders = () => {
 
       worksheet['!cols'] = Object.keys(excelData[0]).map(key => ({
         wch: maxWidths[key] + 2
-      }));
-
-      // Dosya adına tarih aralığını ekle
+      }));      // Dosya adına tarih aralığını ve sipariş türünü ekle
       const startDateStr = new Date(startDate).toLocaleDateString('tr-TR').replace(/\./g, '-');
       const endDateStr = new Date(endDate).toLocaleDateString('tr-TR').replace(/\./g, '-');
-      const fileName = `siparis_detaylari_${startDateStr}_${endDateStr}.xlsx`;
+      const sizeType = orderFilter === 'large-max' ? 'buyuk_max' : 'kucuk_orta';
+      const fileName = `${sizeType}_siparisler_${startDateStr}_${endDateStr}.xlsx`;
 
       // Excel'i indir
       XLSX.writeFile(workbook, fileName);
@@ -409,7 +507,7 @@ const Orders = () => {
   };  const handleVerifyOrder = async (orderId, status) => {
     try {
       const response = await axios.put(
-        `${API_URL}/api/orders/verify-order/${orderId}`,
+        `http://localhost:5000/api/orders/verify-order/${orderId}`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -493,7 +591,7 @@ const Orders = () => {
           if (matchingOrder.status === 'pending') {
             try {
               const response = await axios.put(
-                `${API_URL}/api/orders/verify-order/${orderId}`,
+                `http://localhost:5000/api/orders/verify-order/${orderId}`,
                 { 
                   status: 'confirmed',
                   paymentReference: fullText
@@ -552,48 +650,100 @@ const Orders = () => {
   }
 
   return (
-    <div className="orders-container">      <h2 className="orders-title">Gelen Siparişler</h2>      <div className="search-controls">
-        <div className="date-range-controls">
-          <div className="date-input-group">
-            <label>Başlangıç Tarihi:</label>
-            <input
-              type="date"
-              value={startDate.split('T')[0]}
-              onChange={(e) => {
-                const date = e.target.value;
-                setStartDate(`${date}T13:00`);
-              }}
-              className="date-input"
-            />
-          </div>
-          <div className="date-input-group">
-            <label>Bitiş Tarihi:</label>
-            <input
-              type="date"
-              value={endDate.split('T')[0]}
-              onChange={(e) => {
-                const date = e.target.value;
-                setEndDate(`${date}T13:00`);
-              }}
-              className="date-input"
-            />
-          </div>
-        </div>
-        <div className="export-buttons">
+    <div className="orders-container">      <div className="orders-title-container">
+        <h2 className="orders-title">Gelen Siparişler</h2>        <div className="filter-buttons">
           <button 
-            onClick={exportToXML} 
-            className="excel-export-btn" 
-            disabled={xmlLoading || !startDate || !endDate}
+            className={`filter-btn ${orderFilter === 'small-medium' ? 'active' : ''}`}
+            onClick={() => setOrderFilter('small-medium')}
           >
-            {xmlLoading ? (
-              <>
-                XML İndiriliyor... ({currentXmlPage}/{totalXmlPages})
-                <div className="mini-spinner"></div>
-              </>
-            ) : (
-              'Siparişleri XML İndir'
-            )}
+            Küçük/Orta Boy
           </button>
+          <button 
+            className={`filter-btn ${orderFilter === 'large-max' ? 'active' : ''}`}
+            onClick={() => setOrderFilter('large-max')}
+          >
+            Büyük/Maximum Boy
+          </button>
+        </div>
+      </div>      <div className="search-controls">        <div className="date-range-controls">
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <div className="date-input-group">
+              <label>Başlangıç Tarihi:</label>
+              <DatePicker
+                value={startDate ? dayjs(startDate) : null}
+                onChange={(date) => {
+                  if (date) {
+                    setStartDate(date.format('YYYY-MM-DD') + 'T13:00');
+                  } else {
+                    setStartDate('');
+                  }
+                }}
+                slotProps={{ 
+                  textField: { 
+                    fullWidth: true,
+                    variant: "outlined",
+                    size: "small"
+                  } 
+                }}
+              />
+            </div>
+            <div className="date-input-group">
+              <label>Bitiş Tarihi:</label>
+              <DatePicker
+                value={endDate ? dayjs(endDate) : null}
+                onChange={(date) => {
+                  if (date) {
+                    setEndDate(date.format('YYYY-MM-DD') + 'T13:00');
+                  } else {
+                    setEndDate('');
+                  }
+                }}
+                slotProps={{ 
+                  textField: { 
+                    fullWidth: true,
+                    variant: "outlined",
+                    size: "small"
+                  } 
+                }}
+              />
+            </div>
+          </LocalizationProvider>
+          <div className="date-action-buttons">
+            <button
+              className="filter-apply-btn"
+              onClick={() => fetchOrders(query, 1)}
+            >
+              Filtreyi Uygula
+            </button>
+            <button
+              className="filter-reset-btn"
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+                setPage(1);
+                fetchOrders('', 1);
+              }}
+            >
+              Sıfırla
+            </button>
+          </div>
+        </div><div className="export-buttons">
+          {orderFilter !== 'all' && (
+            <button 
+              onClick={exportToXML} 
+              className="excel-export-btn" 
+              disabled={xmlLoading || !startDate || !endDate}
+            >
+              {xmlLoading ? (
+                <>
+                  XML İndiriliyor... ({currentXmlPage}/{totalXmlPages})
+                  <div className="mini-spinner"></div>
+                </>
+              ) : (
+                `${orderFilter === 'large-max' ? 'Büyük/Maximum' : 'Küçük/Orta'} Boy Siparişleri XML İndir`
+              )}
+            </button>
+          )}
           
           <button 
             onClick={exportToExcel} 
@@ -609,7 +759,7 @@ const Orders = () => {
               'Siparişleri Excel Olarak İndir'
             )}
           </button>
-        </div>        <div className="file-upload-controls">
+        </div><div className="file-upload-controls">
           <label className="file-upload-button" title="PDF faturayı yükleyin. Sistem otomatik olarak sipariş numaralarını tespit edecek ve siparişleri doğrulayacaktır.">
             <input
               type="file"
@@ -674,17 +824,16 @@ const Orders = () => {
               )}
             </div>
           </div>
-        )}
-
-      {loading ? (
+        )}      {loading ? (
         <div className="loading">Yükleniyor...</div>
       ) : orders.length === 0 ? (
         <p>Hiç sipariş bulunamadı.</p>      ) : (
         orders.map(order => {
           const address = order.address || {};
+          const needsManualShipping = requiresManualShipping(order);
 
           return (
-            <div key={order._id} className="order-card">
+            <div key={order._id} className={`order-card ${needsManualShipping ? 'needs-manual-shipping' : ''}`}>
               <div className="order-header">
                 <input
                   type="checkbox"
@@ -696,14 +845,18 @@ const Orders = () => {
                   <div className="order-meta">
                     {order.userId.email}
                     <span className="order-id">{order._id}</span>
+                    {needsManualShipping && (
+                      <span className="manual-shipping-badge" title="Bu siparişte büyük veya maximum boy ürünler var ve elle gönderilmesi gerekiyor.">
+                        Elle Gönderilecek
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="order-date">
                   {new Date(order.createdAt).toLocaleString()}
                 </div>
               </div>
-              <div className="order-content">
-                <div className="order-section">
+              <div className="order-content">                <div className="order-section">
                   <div className="order-section-title">Ürünler</div>
                   <ul className="order-items">
                     {order.items.map((item, idx) => {
@@ -718,8 +871,13 @@ const Orders = () => {
                           {/* Kutu içeriğinden çıkan ürünler */}                          {order.orderItems && order.orderItems.length > 0 && (
                             <ul className="box-contents-list">
                               {order.orderItems.map((oi, oidx) => (
-                                <li key={oi._id || oidx} className="box-content-item">
+                                <li key={oi._id || oidx} className={`box-content-item ${oi.itemType === 'high' || oi.itemType === 'maximum' ? 'manual-item' : ''}`}>
                                   <span className="box-content-dot">•</span> {oi.itemName}
+                                  {(oi.itemType === 'high' || oi.itemType === 'maximum') && (
+                                    <span className="item-type-badge">
+                                      {oi.itemType === 'high' ? 'Büyük Boy' : 'Maximum Boy'}
+                                    </span>
+                                  )}
                                 </li>
                               ))}
                             </ul>

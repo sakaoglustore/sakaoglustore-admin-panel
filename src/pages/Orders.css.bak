@@ -60,11 +60,6 @@
   margin-left: 8px;
 }
 
-.filter-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
 .filter-btn {
   background-color: #f3f4f6;
   border: 1px solid #d1d5db;
@@ -73,13 +68,12 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 0.875rem;
 }
 
 .filter-btn.active {
-  background-color: #3b82f6;
+  background-color: #dc2626;
   color: white;
-  border-color: #3b82f6;
+  border-color: #dc2626;
 }
 
 .filter-btn:hover {
@@ -87,7 +81,7 @@
 }
 
 .filter-btn.active:hover {
-  background-color: #2563eb;
+  background-color: #b91c1c;
 }
 
 .orders-title-container {
@@ -95,11 +89,9 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-  padding: 0 1rem;
 }
-
-.manual-shipping-toggle {
-  margin-left: auto;
+}
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .orders-title {
@@ -765,45 +757,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  margin-bottom: 0.75rem;
-  width: 100%;
-  max-width: 300px;
 }
 
 .date-input-group label {
   font-size: 0.875rem;
+  font-weight: 500;
   color: #4b5563;
 }
 
-.date-input-group .MuiFormControl-root {
-  width: 100%;
-}
-
-.date-input-group .MuiOutlinedInput-root {
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-}
-
-.date-input-group .MuiOutlinedInput-notchedOutline {
-  border-color: #e5e7eb;
-}
-
-.date-input-group .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
-  border-color: #d1d5db;
-}
-
-.date-input-group .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
-  border-color: #6366f1;
-  border-width: 1px;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
-}
-
-.date-input-group .MuiInputLabel-root {
-  font-size: 0.875rem;
-  color: #4b5563;
-}
-
-/* Keep original date-input styles for backward compatibility */
 .date-input {
   padding: 0.5rem;
   border: 1px solid #e5e7eb;
@@ -812,43 +773,6 @@
   color: #374151;
   width: 100%;
   max-width: 300px;
-}
-
-.date-action-buttons {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.filter-apply-btn, .filter-reset-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid;
-}
-
-.filter-apply-btn {
-  background-color: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
-}
-
-.filter-apply-btn:hover {
-  background-color: #2563eb;
-}
-
-.filter-reset-btn {
-  background-color: white;
-  color: #6b7280;
-  border-color: #d1d5db;
-}
-
-.filter-reset-btn:hover {
-  background-color: #f3f4f6;
-  color: #4b5563;
 }
 
 .date-input:focus {
