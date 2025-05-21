@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import './GiftBoxes.css';
 import './Users.css';
-import api from '../utils/api';
+import axios from 'axios';
+
+const API_URL = 'https://api.sakaoglustore.net';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -26,7 +28,10 @@ const Users = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/api/user/all');
+      const token = JSON.parse(localStorage.getItem('admin'))?.token;
+      const res = await axios.get(`https://api.sakaoglustore.net/api/user/all`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setUsers(res.data);
       setFilteredUsers(res.data);
       setTotalPages(Math.ceil(res.data.length / usersPerPage));
@@ -87,9 +92,11 @@ const Users = () => {
     setVerifying(true);
     setErrorMessage('');
     setSuccessMessage('');
-    
     try {
-      const response = await api.put('/api/user/verify/bulk', { userIds: selectedUsers });
+      const token = JSON.parse(localStorage.getItem('admin'))?.token;
+      const response = await axios.put(`https://api.sakaoglustore.net/api/user/verify/bulk`, { userIds: selectedUsers }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setSuccessMessage(response.data.message || `${selectedUsers.length} kullanıcı başarıyla doğrulandı`);
       setSelectedUsers([]);
       fetchUsers();
@@ -98,14 +105,18 @@ const Users = () => {
     } finally {
       setVerifying(false);
     }
-  };  const handleVerifyUser = async (userId) => {
+  };
+
+  const handleVerifyUser = async (userId) => {
     setVerifying(true);
     setVerifyingId(userId);
     setErrorMessage('');
     setSuccessMessage('');
-    
     try {
-      const response = await api.put(`/api/user/verify/${userId}`);
+      const token = JSON.parse(localStorage.getItem('admin'))?.token;
+      const response = await axios.put(`https://api.sakaoglustore.net/api/user/verify/${userId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setSuccessMessage(response.data.message || `Kullanıcı başarıyla doğrulandı`);
       fetchUsers(); // Kullanıcı listesini güncelle
     } catch (error) {
